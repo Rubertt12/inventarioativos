@@ -53,30 +53,145 @@
     setTimeout(() => toast.classList.remove("show"), 2500);
   }
 
+  // --- NOVAS FUNÇÕES PARA USUÁRIOS VIA API ---
 
-  formUsuarios.addEventListener("submit", (e) => {
-  e.preventDefault();
-
-  const usuario = document.getElementById("usuarioNome").value.trim();
-  const senha = document.getElementById("usuarioSenha").value;
-
-  if (!usuario || !senha) {
-    showToast("Preencha usuário e senha.");
-    return;
+  async function carregarUsuarios() {
+    try {
+      const res = await fetch('/api/usuarios');
+      if (!res.ok) throw new Error('Falha ao carregar usuários');
+      usuarios = await res.json();
+    } catch (e) {
+      showToast('Erro ao carregar usuários do servidor');
+      usuarios = [];
+    }
   }
 
-  if (usuarios.find(u => u.usuario.toLowerCase() === usuario.toLowerCase())) {
-    showToast("Usuário já existe.");
-    return;
+  async function salvarUsuario(usuario, senha) {
+    try {
+      const res = await fetch('/api/usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.message || 'Erro ao criar usuário');
+        return false;
+      }
+      return true;
+    } catch {
+      showToast('Erro de conexão com o servidor');
+      return false;
+    }
   }
 
-  usuarios.push({ usuario, senha });
-  salvarUsuarios();
-  renderUsuarios();
-  showToast(`Usuário "${usuario}" criado.`);
-  formUsuarios.reset();
-});
+  async function excluirUsuarioAPI(usuario) {
+    try {
+      const res = await fetch(`/api/usuarios/${encodeURIComponent(usuario)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.message || 'Erro ao excluir usuário');
+        return false;
+      }
+      return true;
+    } catch {
+      showToast('Erro de conexão com o servidor');
+      return false;
+    }
+  }
 
+  async function loginAPI(usuario, senha) {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha }),
+      });
+      if (!res.ok) {
+        return null;
+      }
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  // --- EVENTOS ---
+
+  formUsuarios.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const usuario = document.getElementById("usuarioNome").value.trim();
+    const senha = document.getElementById("usuarioSenha").value;
+
+    if (!usuario || !senha) {
+      showToast("Preencha usuário e senha.");
+      return;
+    }
+
+    if (usuarios.find(u => u.usuario.toLowerCase() === usuario.toLowerCase())) {
+      showToast("Usuário já existe.");
+      return;
+    }
+
+    const sucesso = await salvarUsuario(usuario, senha);
+    if (sucesso) {
+      await carregarUsuarios();
+      renderUsuarios();
+      showToast(`Usuário "${usuario}" criado.`);
+      formUsuarios.reset();
+    }
+  });
+
+  // Login
+  loginBox.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const usuario = usernameInput.value.trim();
+    const senha = passwordInput.value;
+    const user = await loginAPI(usuario, senha);
+    if (!user) {
+      loginError.textContent = "Usuário ou senha inválidos.";
+      loginError.style.display = "block";
+      return;
+    }
+    usuarioLogado = user;
+    loginContainer.style.display = "none";
+    app.style.display = "flex";
+    app.setAttribute("aria-hidden", "false");
+    loginError.style.display = "none";
+    await carregarUsuarios();
+    renderUsuarios();
+    renderInventario();
+    renderMovimentacoes();
+    atualizarDashboard();
+    atualizarSelectItens();
+  });
+
+  // Renderiza tabela de usuários
+  function renderUsuarios() {
+    usuariosTabela.innerHTML = "";
+    usuarios.forEach((u, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${u.usuario}</td><td><button class="btn-excluir" aria-label="Excluir usuário ${u.usuario}">Excluir</button></td>`;
+      tr.querySelector("button").addEventListener("click", async () => {
+        if (u.usuario === "admin") return alert("Não pode excluir o usuário admin");
+        abrirModal(`Excluir usuário "${u.usuario}"?`, async () => {
+          const sucesso = await excluirUsuarioAPI(u.usuario);
+          if (sucesso) {
+            // Atualiza a lista local após exclusão
+            await carregarUsuarios();
+            renderUsuarios();
+            showToast(`Usuário "${u.usuario}" excluído.`);
+          }
+        });
+      });
+      usuariosTabela.appendChild(tr);
+    });
+  }
+
+  // O resto do seu código continua igual, sem mudanças...
 
   // Dark mode toggle (sem duplicar evento)
   const darkToggle = document.getElementById('darkToggle');
@@ -100,20 +215,7 @@
     darkToggle.checked = true;
   }
 
-  // LocalStorage para usuários
-  function salvarUsuarios() {
-    localStorage.setItem("usuarios", JSON.stringify(usuarios));
-  }
-  function carregarUsuarios() {
-    const dados = localStorage.getItem("usuarios");
-    usuarios = dados ? JSON.parse(dados) : [{ usuario: "admin", senha: "1234" }];
-    if (!usuarios.find((u) => u.usuario === "admin")) {
-      usuarios.push({ usuario: "admin", senha: "1234" });
-      salvarUsuarios();
-    }
-  }
-
-  // LocalStorage para inventário
+  // Carregamento inicial do inventário e movimentações
   function salvarInventario() {
     localStorage.setItem("inventario", JSON.stringify(inventario));
   }
@@ -121,8 +223,6 @@
     const dados = localStorage.getItem("inventario");
     inventario = dados ? JSON.parse(dados) : [];
   }
-
-  // LocalStorage para movimentações
   function salvarMovimentacoes() {
     localStorage.setItem("movimentacoes", JSON.stringify(movimentacoes));
   }
@@ -173,25 +273,6 @@
     if (e.key === "Escape" && modalOverlay.classList.contains("active")) fecharModal();
   });
 
-  // Renderiza tabela de usuários
-  function renderUsuarios() {
-    usuariosTabela.innerHTML = "";
-    usuarios.forEach((u, i) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${u.usuario}</td><td><button class="btn-excluir" aria-label="Excluir usuário ${u.usuario}">Excluir</button></td>`;
-      tr.querySelector("button").addEventListener("click", () => {
-        if (u.usuario === "admin") return alert("Não pode excluir o usuário admin");
-        abrirModal(`Excluir usuário "${u.usuario}"?`, () => {
-          usuarios.splice(i, 1);
-          salvarUsuarios();
-          renderUsuarios();
-          showToast(`Usuário "${u.usuario}" excluído.`);
-        });
-      });
-      usuariosTabela.appendChild(tr);
-    });
-  }
-
   // Renderiza tabela de inventário
   function renderInventario() {
     inventarioTabela.innerHTML = "";
@@ -239,52 +320,6 @@
       movimentacoesTabela.appendChild(tr);
     });
   }
-
-  // Login
-  loginBox.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const usuario = usernameInput.value.trim();
-    const senha = passwordInput.value;
-    const user = usuarios.find((u) => u.usuario === usuario && u.senha === senha);
-    if (!user) {
-      loginError.textContent = "Usuário ou senha inválidos.";
-      loginError.style.display = "block";
-      return;
-    }
-    usuarioLogado = user;
-    loginContainer.style.display = "none";
-    app.style.display = "flex";
-    app.setAttribute("aria-hidden", "false");
-    loginError.style.display = "none";
-    renderUsuarios();
-    renderInventario();
-    renderMovimentacoes();
-    atualizarDashboard();
-    atualizarSelectItens();
-  });
-
-  // Logout
-  btnLogout.addEventListener("click", () => {
-    usuarioLogado = null;
-    loginContainer.style.display = "flex";
-    app.style.display = "none";
-    app.setAttribute("aria-hidden", "true");
-    usernameInput.value = "";
-    passwordInput.value = "";
-  });
-
-  // Navegação menu lateral
-  sidebarLinks.forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      sidebarLinks.forEach((l) => l.classList.remove("active"));
-      link.classList.add("active");
-      const sec = link.dataset.section;
-      for (const s in sections) sections[s].classList.add("hidden");
-      sections[sec].classList.remove("hidden");
-      sections[sec].focus();
-    });
-  });
 
   // Form inventário
   formInventario.addEventListener("submit", (e) => {
@@ -441,25 +476,27 @@
   });
 
   // Inicialização
-  carregarUsuarios();
-  carregarInventario();
-  carregarMovimentacoes();
+  (async () => {
+    await carregarUsuarios();
+    carregarInventario();
+    carregarMovimentacoes();
 
-  // Inicializa UI após carregar dados
-  if (usuarioLogado) {
-    loginContainer.style.display = "none";
-    app.style.display = "flex";
-    app.setAttribute("aria-hidden", "false");
-    renderUsuarios();
-    renderInventario();
-    renderMovimentacoes();
-    atualizarDashboard();
-    atualizarSelectItens();
-  } else {
-    loginContainer.style.display = "flex";
-    app.style.display = "none";
-    app.setAttribute("aria-hidden", "true");
-  }
+    // Inicializa UI após carregar dados
+    if (usuarioLogado) {
+      loginContainer.style.display = "none";
+      app.style.display = "flex";
+      app.setAttribute("aria-hidden", "false");
+      renderUsuarios();
+      renderInventario();
+      renderMovimentacoes();
+      atualizarDashboard();
+      atualizarSelectItens();
+    } else {
+      loginContainer.style.display = "flex";
+      app.style.display = "none";
+      app.setAttribute("aria-hidden", "true");
+    }
+  })();
 })();
 
 // Toggle menu lateral fora do IIFE (assumindo que existe no DOM)
@@ -468,10 +505,8 @@ const sidebar = document.getElementById("sidebar");
 btnToggleSidebar.addEventListener("click", () => {
   sidebar.classList.toggle("collapsed");
   if (sidebar.classList.contains("collapsed")) {
-    btnToggleSidebar.setAttribute("aria-label", "Expandir menu lateral");
-    btnToggleSidebar.setAttribute("title", "Expandir menu lateral");
+    btnToggleSidebar.setAttribute("aria-label", "Expandir menu");
   } else {
-    btnToggleSidebar.setAttribute("aria-label", "Recolher menu lateral");
-    btnToggleSidebar.setAttribute("title", "Recolher menu lateral");
+    btnToggleSidebar.setAttribute("aria-label", "Recolher menu");
   }
 });
