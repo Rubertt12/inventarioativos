@@ -53,6 +53,31 @@
     setTimeout(() => toast.classList.remove("show"), 2500);
   }
 
+
+  formUsuarios.addEventListener("submit", (e) => {
+  e.preventDefault();
+
+  const usuario = document.getElementById("usuarioNome").value.trim();
+  const senha = document.getElementById("usuarioSenha").value;
+
+  if (!usuario || !senha) {
+    showToast("Preencha usuário e senha.");
+    return;
+  }
+
+  if (usuarios.find(u => u.usuario.toLowerCase() === usuario.toLowerCase())) {
+    showToast("Usuário já existe.");
+    return;
+  }
+
+  usuarios.push({ usuario, senha });
+  salvarUsuarios();
+  renderUsuarios();
+  showToast(`Usuário "${usuario}" criado.`);
+  formUsuarios.reset();
+});
+
+
   // Dark mode toggle (sem duplicar evento)
   const darkToggle = document.getElementById('darkToggle');
 
