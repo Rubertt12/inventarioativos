@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ERP Fabril Completo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- LOGIN -->
+<div id="login-container" aria-label="Tela de Login">
+  <form id="login-box" aria-describedby="login-error" novalidate>
+   <img src="/img/Midea.svg (1).png" alt="Logo ERP Fabril" class="logo" />
+   <br>
+    <div class="input-group">
+      <input type="text" id="username" autocomplete="username" required placeholder=" " aria-required="true" />
+      <label for="username">Usuário</label>
+    </div>
+    <div class="input-group">
+      <input type="password" id="password" autocomplete="current-password" required placeholder=" " aria-required="true" />
+      <label for="password">Senha</label>
+    </div>
+    <div id="login-error" role="alert" aria-live="assertive"></div>
+    <button id="btnLogin" type="submit" aria-label="Entrar no sistema">Entrar</button>
+  </form>
+</div>
+
+<!-- SISTEMA -->
+<div id="app" role="main" aria-hidden="true">
+  <aside id="sidebar" role="navigation" aria-label="Menu Principal">
+    <div id="logo-container" class="sidebar-header">
+      <button id="btnToggleSidebar" aria-label="Recolher menu lateral" title="Recolher menu lateral" class="btn-toggle-sidebar">&#9776;</button>
+      <img src="/img/midea-carrier-1.png" alt="Logo ERP Fabril" class="logo" />
+      <h1 class="logo-title">ERP Fabril</h1>
+    </div>
+    <nav>
+      <a href="#" class="active" data-section="dashboard" tabindex="0" data-icon="🏠"><span>Dashboard</span></a>
+      <a href="#" data-section="inventario" tabindex="0" data-icon="📦"><span>Inventário</span></a>
+      <a href="#" data-section="movimentacoes" tabindex="0" data-icon="🔄"><span>Movimentações</span></a>
+      <a href="#" data-section="usuarios" tabindex="0" data-icon="👥"><span>Usuarios</span></a>
+      <nav>
+  
+</nav>
+<label class="switch" aria-label="Alternar modo claro e escuro" tabindex="0">
+  <input type="checkbox" id="darkToggle" />
+  <span class="slider"></span>
+</label>
+</nav>
+<button id="btnLogout" aria-label="Sair do sistema">
+  🚪 Sair
+</button>
+
+</aside>
+
+
+  <section id="content">
+    <!-- DASHBOARD -->
+    <section id="dashboard-section" tabindex="0" class="section-active">
+      <h2>Dashboard</h2>
+      <div class="stats" aria-label="Estatísticas do sistema">
+        <div class="stat-card" aria-live="polite" aria-atomic="true">
+          <h3 id="statTotalItens">0</h3>
+          <p>Itens Cadastrados</p>
+        </div>
+        <div class="stat-card" aria-live="polite" aria-atomic="true">
+          <h3 id="statTotalQtd">0</h3>
+          <p>Quantidade Total</p>
+        </div>
+        <div class="stat-card" aria-live="polite" aria-atomic="true">
+          <h3 id="statBaixoEstoque">0</h3>
+          <p>Itens com Baixo Estoque</p>
+        </div>
+        <div class="stat-card" aria-live="polite" aria-atomic="true">
+          <h3 id="statUsuarios">0</h3>
+          <p>Usuários</p>
+        </div>
+      </div>
+      <p>Bem-vindo ao ERP Fabril, seu sistema de gestão industrial.</p>
+
+      <div class="import-export">
+        <input type="file" id="importMovimentacoes" accept=".csv" aria-label="Importar movimentações CSV" />
+        <button id="exportMovimentacoes" aria-label="Exportar movimentações CSV">Exportar Movimentações</button>
+      </div>
+    </section>
+
+    <!-- INVENTÁRIO -->
+    <section id="inventario-section" class="hidden" tabindex="0">
+      <h2>Inventário</h2>
+      <form id="formInventario">
+        <div>
+          <label class="form-label" for="itemNome">Nome do Item</label>
+          <input type="text" id="itemNome" required />
+        </div>
+        <div>
+          <label class="form-label" for="itemQtd">Quantidade</label>
+          <input type="number" id="itemQtd" min="1" required />
+        </div>
+        <div>
+          <label class="form-label" for="itemDesc">Descrição</label>
+          <textarea id="itemDesc" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn-submit">Adicionar Item</button>
+      </form>
+      <table aria-label="Tabela de inventário" class="table-inventario">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Quantidade</th>
+            <th>Descrição</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="inventarioTabela"></tbody>
+      </table>
+    </section>
+
+    <!-- MOVIMENTAÇÕES -->
+    <section id="movimentacoes-section" class="hidden" tabindex="0">
+      <h2>Movimentações</h2>
+      <form id="formMovimentacao">
+        <div>
+          <label class="form-label" for="movItem">Item</label>
+          <select id="movItem" required></select>
+        </div>
+        <div>
+          <label class="form-label" for="movTipo">Tipo</label>
+          <select id="movTipo" required>
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="movQtd">Quantidade</label>
+          <input type="number" id="movQtd" min="1" required />
+        </div>
+        <div>
+          <label class="form-label" for="entreguePara">Entregue para</label>
+          <input type="text" id="entreguePara" placeholder="Nome de quem vai receber o produto" />
+        </div>
+        <button type="submit" class="btn-submit">Registrar Movimentação</button>
+      </form>
+      <table aria-label="Tabela de movimentações" class="table-movimentacoes">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Tipo</th>
+            <th>Quantidade</th>
+            <th>Data</th>
+            <th>Entregue para</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="movimentacoesTabela"></tbody>
+      </table>
+    </section>
+
+    <!-- USUÁRIOS -->
+    <section id="usuarios-section" class="hidden" tabindex="0">
+      <h2>Usuários</h2>
+      <form id="formUsuarios">
+        <div>
+          <label class="form-label" for="usuarioNome">Nome do Usuário</label>
+          <input type="text" id="usuarioNome" required />
+        </div>
+        <div>
+          <label class="form-label" for="usuarioSenha">Senha</label>
+          <input type="text" id="usuarioSenha" required />
+        </div>
+        <button type="submit" class="btn-submit">Adicionar Usuário</button>
+      </form>
+      <table aria-label="Tabela de usuários" class="table-usuarios">
+        <thead>
+          <tr>
+            <th>Usuário</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="usuariosTabela"></tbody>
+      </table>
+    </section>
+  </section>
+</div>
+
+<!-- MODAL CONFIRMAÇÃO -->
+<div id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
+  <div id="modalContent">
+    <h3 id="modalTitle">Confirmação</h3>
+    <p id="modalMsg">Você tem certeza?</p>
+    <div class="modal-buttons">
+      <button id="modalCancelBtn" class="btn-cancel">Cancelar</button>
+      <button id="modalConfirmBtn" class="btn-danger">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
