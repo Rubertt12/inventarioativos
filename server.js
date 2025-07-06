@@ -1,18 +1,18 @@
 const express = require("express");
 const cors = require("cors");
-const bodyParser = require("body-parser");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json()); // substitui bodyParser.json(), que está depreciado
 app.use(express.static("public")); // sua pasta com HTML, CSS, JS, imagens
 
 // Dados em memória
 let usuarios = [
-  { usuario: "admin", senha: "admin" }
+  { usuario: "admin", senha: "admin" } // usuário master padrão
 ];
+
 let inventario = [];
 let movimentacoes = [];
 
@@ -26,7 +26,7 @@ app.post("/api/login", (req, res) => {
   if (!user) {
     return res.status(401).json({ message: "Usuário ou senha inválidos" });
   }
-  // Pode retornar o usuário sem senha para não expor
+  // Não enviar senha para o cliente
   return res.json({ usuario: user.usuario });
 });
 
@@ -52,11 +52,11 @@ app.post("/api/usuarios", (req, res) => {
 
 // DELETE usuário
 app.delete("/api/usuarios/:usuario", (req, res) => {
-  const usuario = req.params.usuario;
-  if (usuario === "admin") {
+  const usuarioParam = req.params.usuario;
+  if (usuarioParam === "admin") {
     return res.status(403).json({ message: "Não pode excluir o usuário admin" });
   }
-  const index = usuarios.findIndex(u => u.usuario === usuario);
+  const index = usuarios.findIndex(u => u.usuario === usuarioParam);
   if (index === -1) {
     return res.status(404).json({ message: "Usuário não encontrado" });
   }
@@ -85,8 +85,8 @@ app.post("/api/inventario", (req, res) => {
 
 // DELETE item
 app.delete("/api/inventario/:nome", (req, res) => {
-  const nome = req.params.nome;
-  const index = inventario.findIndex(i => i.nome === nome);
+  const nomeParam = req.params.nome;
+  const index = inventario.findIndex(i => i.nome === nomeParam);
   if (index === -1) {
     return res.status(404).json({ message: "Item não encontrado" });
   }
@@ -106,11 +106,12 @@ app.post("/api/movimentacoes", (req, res) => {
   if (!item || !tipo || typeof quantidade !== "number" || quantidade < 1 || !data) {
     return res.status(400).json({ message: "Campos obrigatórios inválidos" });
   }
-  // Atualiza estoque conforme movimentação
+
   const estoqueItem = inventario.find(i => i.nome === item);
   if (!estoqueItem) {
     return res.status(400).json({ message: "Item não existe no inventário" });
   }
+
   if (tipo === "saida" && estoqueItem.quantidade < quantidade) {
     return res.status(400).json({ message: "Estoque insuficiente" });
   }
@@ -143,7 +144,8 @@ app.delete("/api/movimentacoes/:id", (req, res) => {
   if (index === -1) {
     return res.status(404).json({ message: "Movimentação não encontrada" });
   }
-  // Reverter o estoque ao remover movimentação (pra manter estoque correto)
+
+  // Reverter o estoque ao remover movimentação para manter consistência
   const mov = movimentacoes[index];
   const estoqueItem = inventario.find(i => i.nome === mov.item);
   if (estoqueItem) {
