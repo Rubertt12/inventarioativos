@@ -78,8 +78,6 @@
   });
 
   // --- API Fetches ---
-
-  // Cabeçalhos comuns (pode incluir token se quiser autenticação)
   const headersJSON = { "Content-Type": "application/json" };
 
   async function loginAPI(usuario, senha) {
@@ -89,9 +87,14 @@
         headers: headersJSON,
         body: JSON.stringify({ usuario, senha }),
       });
-      if (!res.ok) return null;
-      return await res.json(); // assume resposta { usuario: "...", ... }
-    } catch {
+      if (!res.ok) {
+        const data = await res.json();
+        console.error("Login error:", data.message);
+        return null;
+      }
+      return await res.json();
+    } catch (err) {
+      console.error("Erro na requisição login:", err);
       return null;
     }
   }
@@ -143,7 +146,7 @@
     }
   }
 
-  // Inventário API
+  // Inventário API (você vai precisar implementar no server.js)
   async function carregarInventarioAPI() {
     try {
       const res = await fetch("/api/inventario");
@@ -189,7 +192,7 @@
     }
   }
 
-  // Movimentações API
+  // Movimentações API (também deve ter no server.js)
   async function carregarMovimentacoesAPI() {
     try {
       const res = await fetch("/api/movimentacoes");
@@ -236,7 +239,6 @@
   }
 
   // --- Renderização ---
-
   function renderUsuarios() {
     usuariosTabela.innerHTML = "";
     usuarios.forEach((u) => {
@@ -450,7 +452,7 @@
       return;
     }
 
-    // Atualiza estoque localmente antes do POST, para garantir sincronização correta no backend pode ser tratado lá
+    // Atualiza estoque localmente antes do POST
     if (tipo === "entrada") {
       estoqueItem.quantidade += qtd;
     } else {
@@ -535,105 +537,46 @@
 
       for (const line of lines) {
         if (!line.trim()) continue;
-        const cols = line.match(/("([^"]|"")*"|[^,]+)/g);
-        if (!cols || cols.length < 5) continue;
+        const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+        if (!cols || cols.length < 4) continue;
+        let [item, tipo, quantidade, data, entreguePara] = cols.map(c =>
+          c.replace(/^"|"$/g, "")
+        );
+        quantidade = parseInt(quantidade);
+        const timestamp = new Date(data).getTime() || Date.now();
 
-        const item = cols[0].replace(/^"|"$/g, "").replace(/""/g, '"');
-        const tipo = cols[1];
-        const quantidade = parseInt(cols[2]);
-        const dataStr = cols[3].replace(/^"|"$/g, "").replace(/""/g, '"');
-        const data = Date.parse(dataStr);
-        const entreguePara = cols[4].replace(/^"|"$/g, "").replace(/""/g, '"');
+        if (!item || !tipo || isNaN(quantidade)) continue;
 
-        if (!item || !tipo || isNaN(quantidade) || isNaN(data)) continue;
+        const mov = {
+          item,
+          tipo,
+          quantidade,
+          data: timestamp,
+          entreguePara: entreguePara || "",
+        };
 
-        // Adiciona item no inventário se não existir
-        let estoqueItem = inventario.find(i => i.nome === item);
-        if (!estoqueItem) {
-          const successItem = await adicionarItemAPI({ nome: item, quantidade: 0, descricao: "" });
-          if (!successItem) continue;
-          await carregarInventarioAPI();
-          estoqueItem = inventario.find(i => i.nome === item);
-        }
-
-        // Atualiza estoque local para manter UI coerente (backend deve cuidar disso também)
-        if (tipo === "entrada") {
-          estoqueItem.quantidade += quantidade;
-        } else if (tipo === "saida") {
-          estoqueItem.quantidade -= quantidade;
-          if (estoqueItem.quantidade < 0) estoqueItem.quantidade = 0;
-        }
-
-        const mov = { item, tipo, quantidade, data, entreguePara };
-        const successMov = await adicionarMovimentacaoAPI(mov);
-        if (successMov) importedCount++;
+        const sucesso = await adicionarMovimentacaoAPI(mov);
+        if (sucesso) importedCount++;
       }
-
-      await carregarInventarioAPI();
+      showToast(`${importedCount} movimentações importadas.`);
       await carregarMovimentacoesAPI();
-      renderInventario();
       renderMovimentacoes();
-      atualizarDashboard();
-      atualizarSelectItens();
-      showToast(`Importadas ${importedCount} movimentações.`);
     };
-
     reader.readAsText(file);
-    e.target.value = ""; // limpa input
   });
 
-  // Dark Mode Toggle
-  const darkToggle = document.getElementById("darkToggle");
+  // Inicializa exibição: oculta app e mostra login
+  function init() {
+    app.style.display = "none";
+    loginContainer.style.display = "flex";
+    app.setAttribute("aria-hidden", "true");
 
-  function toggleDarkMode() {
-    document.body.classList.toggle("dark-mode");
-    if (document.body.classList.contains("dark-mode")) {
-      localStorage.setItem("darkMode", "enabled");
-      darkToggle.checked = true;
-    } else {
-      localStorage.removeItem("darkMode");
-      darkToggle.checked = false;
-    }
+    // Default seção ativa: dashboard
+    sidebarLinks.forEach(l => l.classList.remove("active"));
+    sidebarLinks[0].classList.add("active");
+    Object.values(sections).forEach(s => s.classList.add("hidden"));
+    sections.dashboard.classList.remove("hidden");
   }
+  init();
 
-  darkToggle.addEventListener("change", toggleDarkMode);
-
-  // Load dark mode on init
-  if (localStorage.getItem("darkMode") === "enabled") {
-    document.body.classList.add("dark-mode");
-    darkToggle.checked = true;
-  }
-
-  // Sidebar toggle (fora do IIFE)
-  const btnToggleSidebar = document.getElementById("btnToggleSidebar");
-  const sidebar = document.getElementById("sidebar");
-  btnToggleSidebar.addEventListener("click", () => {
-    sidebar.classList.toggle("collapsed");
-    if (sidebar.classList.contains("collapsed")) {
-      btnToggleSidebar.setAttribute("aria-label", "Expandir menu");
-    } else {
-      btnToggleSidebar.setAttribute("aria-label", "Recolher menu");
-    }
-  });
-
-  // Inicialização
-  (async () => {
-    if (usuarioLogado) {
-      loginContainer.style.display = "none";
-      app.style.display = "flex";
-      app.setAttribute("aria-hidden", "false");
-      await carregarUsuarios();
-      await carregarInventarioAPI();
-      await carregarMovimentacoesAPI();
-      renderUsuarios();
-      renderInventario();
-      renderMovimentacoes();
-      atualizarDashboard();
-      atualizarSelectItens();
-    } else {
-      loginContainer.style.display = "flex";
-      app.style.display = "none";
-      app.setAttribute("aria-hidden", "true");
-    }
-  })();
 })();
