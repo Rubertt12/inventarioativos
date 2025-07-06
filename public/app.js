@@ -1,5 +1,5 @@
 (() => {
-  // Elementos DOM
+  // --- DOM Elements ---
   const loginContainer = document.getElementById("login-container");
   const app = document.getElementById("app");
   const loginBox = document.getElementById("login-box");
@@ -40,217 +40,21 @@
   const modalConfirmBtn = document.getElementById("modalConfirmBtn");
   const modalCancelBtn = document.getElementById("modalCancelBtn");
 
+  // --- Estado ---
   let usuarios = [];
   let inventario = [];
   let movimentacoes = [];
   let usuarioLogado = null;
   let deleteCallback = null;
 
-  // Toast helper
+  // --- Helpers ---
   function showToast(msg) {
     toast.textContent = msg;
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 2500);
   }
 
-  // --- NOVAS FUNÇÕES PARA USUÁRIOS VIA API ---
-
-  async function carregarUsuarios() {
-    try {
-      const res = await fetch('/api/usuarios');
-      if (!res.ok) throw new Error('Falha ao carregar usuários');
-      usuarios = await res.json();
-    } catch (e) {
-      showToast('Erro ao carregar usuários do servidor');
-      usuarios = [];
-    }
-  }
-
-  async function salvarUsuario(usuario, senha) {
-    try {
-      const res = await fetch('/api/usuarios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario, senha }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        showToast(data.message || 'Erro ao criar usuário');
-        return false;
-      }
-      return true;
-    } catch {
-      showToast('Erro de conexão com o servidor');
-      return false;
-    }
-  }
-
-  async function excluirUsuarioAPI(usuario) {
-    try {
-      const res = await fetch(`/api/usuarios/${encodeURIComponent(usuario)}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        showToast(data.message || 'Erro ao excluir usuário');
-        return false;
-      }
-      return true;
-    } catch {
-      showToast('Erro de conexão com o servidor');
-      return false;
-    }
-  }
-
-  async function loginAPI(usuario, senha) {
-    try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario, senha }),
-      });
-      if (!res.ok) {
-        return null;
-      }
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }
-
-  // --- EVENTOS ---
-
-  formUsuarios.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const usuario = document.getElementById("usuarioNome").value.trim();
-    const senha = document.getElementById("usuarioSenha").value;
-
-    if (!usuario || !senha) {
-      showToast("Preencha usuário e senha.");
-      return;
-    }
-
-    if (usuarios.find(u => u.usuario.toLowerCase() === usuario.toLowerCase())) {
-      showToast("Usuário já existe.");
-      return;
-    }
-
-    const sucesso = await salvarUsuario(usuario, senha);
-    if (sucesso) {
-      await carregarUsuarios();
-      renderUsuarios();
-      showToast(`Usuário "${usuario}" criado.`);
-      formUsuarios.reset();
-    }
-  });
-
-  // Login
-  loginBox.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const usuario = usernameInput.value.trim();
-    const senha = passwordInput.value;
-    const user = await loginAPI(usuario, senha);
-    if (!user) {
-      loginError.textContent = "Usuário ou senha inválidos.";
-      loginError.style.display = "block";
-      return;
-    }
-    usuarioLogado = user;
-    loginContainer.style.display = "none";
-    app.style.display = "flex";
-    app.setAttribute("aria-hidden", "false");
-    loginError.style.display = "none";
-    await carregarUsuarios();
-    renderUsuarios();
-    renderInventario();
-    renderMovimentacoes();
-    atualizarDashboard();
-    atualizarSelectItens();
-  });
-
-  // Renderiza tabela de usuários
-  function renderUsuarios() {
-    usuariosTabela.innerHTML = "";
-    usuarios.forEach((u, i) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${u.usuario}</td><td><button class="btn-excluir" aria-label="Excluir usuário ${u.usuario}">Excluir</button></td>`;
-      tr.querySelector("button").addEventListener("click", async () => {
-        if (u.usuario === "admin") return alert("Não pode excluir o usuário admin");
-        abrirModal(`Excluir usuário "${u.usuario}"?`, async () => {
-          const sucesso = await excluirUsuarioAPI(u.usuario);
-          if (sucesso) {
-            // Atualiza a lista local após exclusão
-            await carregarUsuarios();
-            renderUsuarios();
-            showToast(`Usuário "${u.usuario}" excluído.`);
-          }
-        });
-      });
-      usuariosTabela.appendChild(tr);
-    });
-  }
-
-  // O resto do seu código continua igual, sem mudanças...
-
-  // Dark mode toggle (sem duplicar evento)
-  const darkToggle = document.getElementById('darkToggle');
-
-  function toggleDarkMode() {
-    document.body.classList.toggle("dark-mode");
-    if (document.body.classList.contains("dark-mode")) {
-      localStorage.setItem("darkMode", "enabled");
-      darkToggle.checked = true;
-    } else {
-      localStorage.removeItem("darkMode");
-      darkToggle.checked = false;
-    }
-  }
-
-  darkToggle.addEventListener("change", toggleDarkMode);
-
-  // Carrega preferência do modo escuro ao iniciar
-  if (localStorage.getItem("darkMode") === "enabled") {
-    document.body.classList.add("dark-mode");
-    darkToggle.checked = true;
-  }
-
-  // Carregamento inicial do inventário e movimentações
-  function salvarInventario() {
-    localStorage.setItem("inventario", JSON.stringify(inventario));
-  }
-  function carregarInventario() {
-    const dados = localStorage.getItem("inventario");
-    inventario = dados ? JSON.parse(dados) : [];
-  }
-  function salvarMovimentacoes() {
-    localStorage.setItem("movimentacoes", JSON.stringify(movimentacoes));
-  }
-  function carregarMovimentacoes() {
-    const dados = localStorage.getItem("movimentacoes");
-    movimentacoes = dados ? JSON.parse(dados) : [];
-  }
-
-  // Atualiza select de itens no form movimentação
-  function atualizarSelectItens() {
-    movItem.innerHTML = "";
-    inventario.forEach((item) => {
-      const option = document.createElement("option");
-      option.value = item.nome;
-      option.textContent = item.nome;
-      movItem.appendChild(option);
-    });
-  }
-
-  // Atualiza os dados do dashboard
-  function atualizarDashboard() {
-    statTotalItens.textContent = inventario.length;
-    statUsuarios.textContent = usuarios.length;
-    statTotalQtd.textContent = inventario.reduce((acc, item) => acc + item.quantidade, 0);
-    statBaixoEstoque.textContent = inventario.filter((i) => i.quantidade <= 5).length;
-  }
-
-  // Modal abrir e fechar
+  // Modal abrir/fechar
   function abrirModal(msg, onConfirm) {
     modalMsg.textContent = msg;
     modalOverlay.classList.add("active");
@@ -266,41 +70,221 @@
     fecharModal();
   });
   modalCancelBtn.addEventListener("click", fecharModal);
-  modalOverlay.addEventListener("click", (e) => {
+  modalOverlay.addEventListener("click", e => {
     if (e.target === modalOverlay) fecharModal();
   });
-  document.addEventListener("keydown", (e) => {
+  document.addEventListener("keydown", e => {
     if (e.key === "Escape" && modalOverlay.classList.contains("active")) fecharModal();
   });
 
-  // Renderiza tabela de inventário
+  // --- API Fetches ---
+
+  // Cabeçalhos comuns (pode incluir token se quiser autenticação)
+  const headersJSON = { "Content-Type": "application/json" };
+
+  async function loginAPI(usuario, senha) {
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: headersJSON,
+        body: JSON.stringify({ usuario, senha }),
+      });
+      if (!res.ok) return null;
+      return await res.json(); // assume resposta { usuario: "...", ... }
+    } catch {
+      return null;
+    }
+  }
+
+  async function carregarUsuarios() {
+    try {
+      const res = await fetch("/api/usuarios");
+      if (!res.ok) throw new Error("Erro ao carregar usuários");
+      usuarios = await res.json();
+    } catch (e) {
+      showToast("Erro ao carregar usuários do servidor");
+      usuarios = [];
+    }
+  }
+
+  async function salvarUsuarioAPI(usuario, senha) {
+    try {
+      const res = await fetch("/api/usuarios", {
+        method: "POST",
+        headers: headersJSON,
+        body: JSON.stringify({ usuario, senha }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.message || "Erro ao criar usuário");
+        return false;
+      }
+      return true;
+    } catch {
+      showToast("Erro de conexão com o servidor");
+      return false;
+    }
+  }
+
+  async function excluirUsuarioAPI(usuario) {
+    try {
+      const res = await fetch(`/api/usuarios/${encodeURIComponent(usuario)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.message || "Erro ao excluir usuário");
+        return false;
+      }
+      return true;
+    } catch {
+      showToast("Erro de conexão com o servidor");
+      return false;
+    }
+  }
+
+  // Inventário API
+  async function carregarInventarioAPI() {
+    try {
+      const res = await fetch("/api/inventario");
+      if (!res.ok) throw new Error("Erro ao carregar inventário");
+      inventario = await res.json();
+    } catch {
+      inventario = [];
+      showToast("Erro ao carregar inventário do servidor");
+    }
+  }
+  async function adicionarItemAPI(item) {
+    try {
+      const res = await fetch("/api/inventario", {
+        method: "POST",
+        headers: headersJSON,
+        body: JSON.stringify(item),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.message || "Erro ao adicionar item");
+        return false;
+      }
+      return true;
+    } catch {
+      showToast("Erro de conexão com o servidor");
+      return false;
+    }
+  }
+  async function excluirItemAPI(nome) {
+    try {
+      const res = await fetch(`/api/inventario/${encodeURIComponent(nome)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.message || "Erro ao excluir item");
+        return false;
+      }
+      return true;
+    } catch {
+      showToast("Erro de conexão com o servidor");
+      return false;
+    }
+  }
+
+  // Movimentações API
+  async function carregarMovimentacoesAPI() {
+    try {
+      const res = await fetch("/api/movimentacoes");
+      if (!res.ok) throw new Error("Erro ao carregar movimentações");
+      movimentacoes = await res.json();
+    } catch {
+      movimentacoes = [];
+      showToast("Erro ao carregar movimentações do servidor");
+    }
+  }
+  async function adicionarMovimentacaoAPI(mov) {
+    try {
+      const res = await fetch("/api/movimentacoes", {
+        method: "POST",
+        headers: headersJSON,
+        body: JSON.stringify(mov),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.message || "Erro ao adicionar movimentação");
+        return false;
+      }
+      return true;
+    } catch {
+      showToast("Erro de conexão com o servidor");
+      return false;
+    }
+  }
+  async function excluirMovimentacaoAPI(id) {
+    try {
+      const res = await fetch(`/api/movimentacoes/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        showToast(data.message || "Erro ao excluir movimentação");
+        return false;
+      }
+      return true;
+    } catch {
+      showToast("Erro de conexão com o servidor");
+      return false;
+    }
+  }
+
+  // --- Renderização ---
+
+  function renderUsuarios() {
+    usuariosTabela.innerHTML = "";
+    usuarios.forEach((u) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${u.usuario}</td><td><button class="btn-excluir" aria-label="Excluir usuário ${u.usuario}">Excluir</button></td>`;
+      tr.querySelector("button").addEventListener("click", () => {
+        if (u.usuario === "admin") return alert("Não pode excluir o usuário admin");
+        abrirModal(`Excluir usuário "${u.usuario}"?`, async () => {
+          const sucesso = await excluirUsuarioAPI(u.usuario);
+          if (sucesso) {
+            await carregarUsuarios();
+            renderUsuarios();
+            showToast(`Usuário "${u.usuario}" excluído.`);
+          }
+        });
+      });
+      usuariosTabela.appendChild(tr);
+    });
+  }
+
   function renderInventario() {
     inventarioTabela.innerHTML = "";
-    inventario.forEach((item, i) => {
+    inventario.forEach((item) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${item.nome}</td>
         <td>${item.quantidade}</td>
-        <td>${item.descricao}</td>
+        <td>${item.descricao || ""}</td>
         <td><button class="btn-excluir" aria-label="Excluir item ${item.nome}">Excluir</button></td>`;
       tr.querySelector("button").addEventListener("click", () => {
-        abrirModal(`Excluir item "${item.nome}"?`, () => {
-          inventario.splice(i, 1);
-          salvarInventario();
-          atualizarSelectItens();
-          renderInventario();
-          atualizarDashboard();
-          showToast(`Item "${item.nome}" excluído.`);
+        abrirModal(`Excluir item "${item.nome}"?`, async () => {
+          const sucesso = await excluirItemAPI(item.nome);
+          if (sucesso) {
+            await carregarInventarioAPI();
+            renderInventario();
+            atualizarSelectItens();
+            atualizarDashboard();
+            showToast(`Item "${item.nome}" excluído.`);
+          }
         });
       });
       inventarioTabela.appendChild(tr);
     });
   }
 
-  // Renderiza tabela de movimentações
   function renderMovimentacoes() {
     movimentacoesTabela.innerHTML = "";
-    movimentacoes.forEach((mov, i) => {
+    movimentacoes.forEach((mov) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${mov.item}</td>
@@ -310,19 +294,122 @@
         <td>${mov.entreguePara || "—"}</td>
         <td><button class="btn-excluir" aria-label="Excluir movimentação ${mov.item}">Excluir</button></td>`;
       tr.querySelector("button").addEventListener("click", () => {
-        abrirModal(`Excluir movimentação do item "${mov.item}"?`, () => {
-          movimentacoes.splice(i, 1);
-          salvarMovimentacoes();
-          renderMovimentacoes();
-          showToast("Movimentação excluída.");
+        abrirModal(`Excluir movimentação do item "${mov.item}"?`, async () => {
+          const sucesso = await excluirMovimentacaoAPI(mov._id || mov.id);
+          if (sucesso) {
+            await carregarMovimentacoesAPI();
+            renderMovimentacoes();
+            showToast("Movimentação excluída.");
+          }
         });
       });
       movimentacoesTabela.appendChild(tr);
     });
   }
 
-  // Form inventário
-  formInventario.addEventListener("submit", (e) => {
+  function atualizarSelectItens() {
+    movItem.innerHTML = "";
+    inventario.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.nome;
+      option.textContent = item.nome;
+      movItem.appendChild(option);
+    });
+  }
+
+  function atualizarDashboard() {
+    statTotalItens.textContent = inventario.length;
+    statUsuarios.textContent = usuarios.length;
+    statTotalQtd.textContent = inventario.reduce((acc, i) => acc + i.quantidade, 0);
+    statBaixoEstoque.textContent = inventario.filter(i => i.quantidade <= 5).length;
+  }
+
+  // --- Eventos ---
+
+  // Navegação entre seções
+  sidebarLinks.forEach(link => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const sec = e.currentTarget.getAttribute("data-section");
+      if (!sec) return;
+      // ativa aba
+      sidebarLinks.forEach(l => l.classList.remove("active"));
+      e.currentTarget.classList.add("active");
+      // mostra seção
+      Object.entries(sections).forEach(([key, section]) => {
+        section.classList.toggle("hidden", key !== sec);
+      });
+      sections[sec].focus();
+    });
+  });
+
+  // Login
+  loginBox.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginError.textContent = "";
+    const usuario = usernameInput.value.trim();
+    const senha = passwordInput.value;
+    if (!usuario || !senha) {
+      loginError.textContent = "Preencha usuário e senha.";
+      return;
+    }
+    const user = await loginAPI(usuario, senha);
+    if (!user) {
+      loginError.textContent = "Usuário ou senha inválidos.";
+      return;
+    }
+    usuarioLogado = user;
+    loginContainer.style.display = "none";
+    app.style.display = "flex";
+    app.setAttribute("aria-hidden", "false");
+
+    // Carregar dados do backend
+    await carregarUsuarios();
+    await carregarInventarioAPI();
+    await carregarMovimentacoesAPI();
+
+    renderUsuarios();
+    renderInventario();
+    renderMovimentacoes();
+    atualizarDashboard();
+    atualizarSelectItens();
+  });
+
+  // Logout
+  btnLogout.addEventListener("click", () => {
+    usuarioLogado = null;
+    loginContainer.style.display = "flex";
+    app.style.display = "none";
+    app.setAttribute("aria-hidden", "true");
+    loginBox.reset();
+    loginError.textContent = "";
+    showToast("Você saiu do sistema.");
+  });
+
+  // Form Usuários (adicionar)
+  formUsuarios.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const usuario = document.getElementById("usuarioNome").value.trim();
+    const senha = document.getElementById("usuarioSenha").value;
+    if (!usuario || !senha) {
+      showToast("Preencha usuário e senha.");
+      return;
+    }
+    if (usuarios.find(u => u.usuario.toLowerCase() === usuario.toLowerCase())) {
+      showToast("Usuário já existe.");
+      return;
+    }
+    const sucesso = await salvarUsuarioAPI(usuario, senha);
+    if (sucesso) {
+      await carregarUsuarios();
+      renderUsuarios();
+      showToast(`Usuário "${usuario}" criado.`);
+      formUsuarios.reset();
+    }
+  });
+
+  // Form Inventário (adicionar)
+  formInventario.addEventListener("submit", async (e) => {
     e.preventDefault();
     const nome = document.getElementById("itemNome").value.trim();
     const qtd = parseInt(document.getElementById("itemQtd").value);
@@ -331,60 +418,80 @@
       showToast("Preencha os campos corretamente.");
       return;
     }
-    if (inventario.find((i) => i.nome.toLowerCase() === nome.toLowerCase())) {
+    if (inventario.find(i => i.nome.toLowerCase() === nome.toLowerCase())) {
       showToast("Item já cadastrado.");
       return;
     }
-    inventario.push({ nome, quantidade: qtd, descricao: desc });
-    salvarInventario();
-    renderInventario();
-    atualizarSelectItens();
-    atualizarDashboard();
-    formInventario.reset();
-    showToast(`Item "${nome}" adicionado.`);
+    const sucesso = await adicionarItemAPI({ nome, quantidade: qtd, descricao: desc });
+    if (sucesso) {
+      await carregarInventarioAPI();
+      renderInventario();
+      atualizarSelectItens();
+      atualizarDashboard();
+      formInventario.reset();
+      showToast(`Item "${nome}" adicionado.`);
+    }
   });
 
-  // Form movimentação
-  formMovimentacao.addEventListener("submit", (e) => {
+  // Form Movimentação (adicionar)
+  formMovimentacao.addEventListener("submit", async (e) => {
     e.preventDefault();
     const item = movItem.value;
     const tipo = movTipo.value;
     const qtd = parseInt(movQtd.value);
     const para = entreguePara.value.trim();
-    const itemEstoque = inventario.find((i) => i.nome === item);
-    if (!item || !tipo || isNaN(qtd) || qtd < 1 || !itemEstoque) return;
-    if (tipo === "saida" && itemEstoque.quantidade < qtd) {
+    const estoqueItem = inventario.find(i => i.nome === item);
+    if (!item || !tipo || isNaN(qtd) || qtd < 1 || !estoqueItem) {
+      showToast("Preencha os campos corretamente.");
+      return;
+    }
+    if (tipo === "saida" && estoqueItem.quantidade < qtd) {
       showToast("Estoque insuficiente.");
       return;
     }
+
+    // Atualiza estoque localmente antes do POST, para garantir sincronização correta no backend pode ser tratado lá
     if (tipo === "entrada") {
-      itemEstoque.quantidade += qtd;
+      estoqueItem.quantidade += qtd;
     } else {
-      itemEstoque.quantidade -= qtd;
+      estoqueItem.quantidade -= qtd;
     }
-    movimentacoes.push({
+
+    const movimentacao = {
       item,
       tipo,
       quantidade: qtd,
       data: Date.now(),
       entreguePara: tipo === "saida" ? para : "",
-    });
-    salvarInventario();
-    salvarMovimentacoes();
-    renderInventario();
-    renderMovimentacoes();
-    atualizarDashboard();
-    formMovimentacao.reset();
-    showToast("Movimentação registrada.");
+    };
+
+    const sucesso = await adicionarMovimentacaoAPI(movimentacao);
+    if (sucesso) {
+      await carregarInventarioAPI();
+      await carregarMovimentacoesAPI();
+      renderInventario();
+      renderMovimentacoes();
+      atualizarDashboard();
+      atualizarSelectItens();
+      formMovimentacao.reset();
+      showToast("Movimentação registrada.");
+    } else {
+      // Reverter estoque local se falhou
+      if (tipo === "entrada") {
+        estoqueItem.quantidade -= qtd;
+      } else {
+        estoqueItem.quantidade += qtd;
+      }
+    }
   });
 
-  // Exporta movimentações para CSV
+  // Exportar movimentações CSV (frontend)
   document.getElementById("exportMovimentacoes").addEventListener("click", () => {
     if (movimentacoes.length === 0) {
       return showToast("Não há movimentações para exportar.");
     }
     const csvHeader = "item,tipo,quantidade,data,entreguePara\n";
-    const csvRows = movimentacoes.map((mov) => {
+    const csvRows = movimentacoes.map(mov => {
       return [
         `"${mov.item.replace(/"/g, '""')}"`,
         mov.tipo,
@@ -404,13 +511,13 @@
     showToast("Movimentações exportadas.");
   });
 
-  // Importa movimentações de CSV
+  // Importar movimentações CSV (frontend)
   document.getElementById("importMovimentacoes").addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       const text = evt.target.result;
       const lines = text.split(/\r?\n/);
       const header = lines.shift().split(",");
@@ -426,31 +533,30 @@
 
       let importedCount = 0;
 
-      lines.forEach((line) => {
-        if (!line.trim()) return;
+      for (const line of lines) {
+        if (!line.trim()) continue;
         const cols = line.match(/("([^"]|"")*"|[^,]+)/g);
-        if (!cols || cols.length < 5) return;
+        if (!cols || cols.length < 5) continue;
 
-        // Remove aspas e desescape
         const item = cols[0].replace(/^"|"$/g, "").replace(/""/g, '"');
         const tipo = cols[1];
         const quantidade = parseInt(cols[2]);
-
-        // Converte data legível para timestamp
         const dataStr = cols[3].replace(/^"|"$/g, "").replace(/""/g, '"');
         const data = Date.parse(dataStr);
-        if (isNaN(data)) return; // descarta linha se data inválida
-
         const entreguePara = cols[4].replace(/^"|"$/g, "").replace(/""/g, '"');
 
-        if (!item || !tipo || isNaN(quantidade)) return;
+        if (!item || !tipo || isNaN(quantidade) || isNaN(data)) continue;
 
-        // Atualiza estoque
-        let estoqueItem = inventario.find((i) => i.nome === item);
+        // Adiciona item no inventário se não existir
+        let estoqueItem = inventario.find(i => i.nome === item);
         if (!estoqueItem) {
-          inventario.push({ nome: item, quantidade: 0, descricao: "" });
-          estoqueItem = inventario[inventario.length - 1];
+          const successItem = await adicionarItemAPI({ nome: item, quantidade: 0, descricao: "" });
+          if (!successItem) continue;
+          await carregarInventarioAPI();
+          estoqueItem = inventario.find(i => i.nome === item);
         }
+
+        // Atualiza estoque local para manter UI coerente (backend deve cuidar disso também)
         if (tipo === "entrada") {
           estoqueItem.quantidade += quantidade;
         } else if (tipo === "saida") {
@@ -458,12 +564,13 @@
           if (estoqueItem.quantidade < 0) estoqueItem.quantidade = 0;
         }
 
-        movimentacoes.push({ item, tipo, quantidade, data, entreguePara });
-        importedCount++;
-      });
+        const mov = { item, tipo, quantidade, data, entreguePara };
+        const successMov = await adicionarMovimentacaoAPI(mov);
+        if (successMov) importedCount++;
+      }
 
-      salvarInventario();
-      salvarMovimentacoes();
+      await carregarInventarioAPI();
+      await carregarMovimentacoesAPI();
       renderInventario();
       renderMovimentacoes();
       atualizarDashboard();
@@ -472,20 +579,52 @@
     };
 
     reader.readAsText(file);
-    e.target.value = ""; // limpa input para nova importação
+    e.target.value = ""; // limpa input
+  });
+
+  // Dark Mode Toggle
+  const darkToggle = document.getElementById("darkToggle");
+
+  function toggleDarkMode() {
+    document.body.classList.toggle("dark-mode");
+    if (document.body.classList.contains("dark-mode")) {
+      localStorage.setItem("darkMode", "enabled");
+      darkToggle.checked = true;
+    } else {
+      localStorage.removeItem("darkMode");
+      darkToggle.checked = false;
+    }
+  }
+
+  darkToggle.addEventListener("change", toggleDarkMode);
+
+  // Load dark mode on init
+  if (localStorage.getItem("darkMode") === "enabled") {
+    document.body.classList.add("dark-mode");
+    darkToggle.checked = true;
+  }
+
+  // Sidebar toggle (fora do IIFE)
+  const btnToggleSidebar = document.getElementById("btnToggleSidebar");
+  const sidebar = document.getElementById("sidebar");
+  btnToggleSidebar.addEventListener("click", () => {
+    sidebar.classList.toggle("collapsed");
+    if (sidebar.classList.contains("collapsed")) {
+      btnToggleSidebar.setAttribute("aria-label", "Expandir menu");
+    } else {
+      btnToggleSidebar.setAttribute("aria-label", "Recolher menu");
+    }
   });
 
   // Inicialização
   (async () => {
-    await carregarUsuarios();
-    carregarInventario();
-    carregarMovimentacoes();
-
-    // Inicializa UI após carregar dados
     if (usuarioLogado) {
       loginContainer.style.display = "none";
       app.style.display = "flex";
       app.setAttribute("aria-hidden", "false");
+      await carregarUsuarios();
+      await carregarInventarioAPI();
+      await carregarMovimentacoesAPI();
       renderUsuarios();
       renderInventario();
       renderMovimentacoes();
@@ -498,15 +637,3 @@
     }
   })();
 })();
-
-// Toggle menu lateral fora do IIFE (assumindo que existe no DOM)
-const btnToggleSidebar = document.getElementById("btnToggleSidebar");
-const sidebar = document.getElementById("sidebar");
-btnToggleSidebar.addEventListener("click", () => {
-  sidebar.classList.toggle("collapsed");
-  if (sidebar.classList.contains("collapsed")) {
-    btnToggleSidebar.setAttribute("aria-label", "Expandir menu");
-  } else {
-    btnToggleSidebar.setAttribute("aria-label", "Recolher menu");
-  }
-});
